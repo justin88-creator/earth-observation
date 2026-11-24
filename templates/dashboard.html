@@ -1,0 +1,322 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b1220">
+  <title>Global Earth Observation Dashboard</title>
+
+  <link rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+  <link rel="stylesheet"
+    href="https://cesium.com/downloads/cesiumjs/releases/1.145/Build/Cesium/Widgets/widgets.css">
+
+  <link rel="stylesheet"
+    href="{{ url_for('static', filename='css/dashboard.css') }}">
+
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.145/Build/Cesium/Cesium.js"></script>
+</head>
+<body>
+<div class="shell">
+
+  <aside id="sidebar" class="sidebar">
+    <div class="brand">
+      <div class="brand-badge">
+        <i class="fa-solid fa-earth-africa"></i>
+      </div>
+      <div>
+        <div class="b1">EARTH OBSERVER</div>
+        <div class="b2">GLOBAL EARTH OBSERVATION</div>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <button id="earthNav" class="nav-item active" data-mode="earth">
+        <i class="fa-solid fa-earth-africa"></i><span>Earth</span>
+      </button>
+      <button id="agricultureNav" class="nav-item" data-mode="agriculture">
+        <i class="fa-solid fa-wheat-awn"></i><span>Agriculture</span>
+      </button>
+      <button id="floodNav" class="nav-item" data-mode="flood">
+        <i class="fa-solid fa-water"></i><span>Flood</span>
+      </button>
+      <button id="weatherNav" class="nav-item" data-mode="weather">
+        <i class="fa-solid fa-cloud-sun-rain"></i><span>Weather</span>
+      </button>
+      <button id="vegetationNav" class="nav-item" data-mode="vegetation">
+        <i class="fa-solid fa-seedling"></i><span>Vegetation</span>
+      </button>
+    </nav>
+
+    <div class="sidebar-section">
+      <label for="sentinelProduct">COPERNICUS PRODUCT</label>
+      <select id="sentinelProduct">
+        <option value="NATURAL-COLOR">Natural Color</option>
+        <option value="NDVI">NDVI</option>
+        <option value="FALSE-COLOR">False Color Vegetation</option>
+        <option value="FALSE-COLOR-URBAN">False Color Urban</option>
+        <option value="AGRICULTURE">Agriculture</option>
+        <option value="MOISTURE-INDEX">Moisture Index</option>
+        <option value="GEOLOGY">Geology</option>
+        <option value="SWIR">SWIR</option>
+      </select>
+
+      <div class="opacity-header">
+        <label for="sentinelOpacity">OPACITY</label>
+        <span id="opacityValue">70%</span>
+      </div>
+      <input id="sentinelOpacity" type="range"
+        min="0" max="100" value="70">
+    </div>
+
+    <div class="sidebar-user">
+      <div class="avatar"><i class="fa-solid fa-user"></i></div>
+      <div>
+        <strong>Earth Observer</strong>
+        <small>Geospatial Analysis</small>
+      </div>
+    </div>
+  </aside>
+
+  <div id="menuOverlay" class="menu-overlay"></div>
+
+  <main class="main">
+    <header class="topbar">
+      <button id="menuButton" class="icon-btn" aria-label="Open menu">
+        <i class="fa-solid fa-bars"></i>
+      </button>
+
+      <div class="search-box">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input id="locationSearch" type="search"
+          placeholder="Search country, city, area or landmark..."
+          autocomplete="off">
+        <button id="searchButton" aria-label="Search">
+          <i class="fa-solid fa-arrow-right"></i>
+        </button>
+        <div id="locationSuggestions"
+          class="location-suggestions" hidden></div>
+      </div>
+
+      <div class="topbar-right">
+        <div id="systemStatus" class="system-status">
+          <span class="status-dot"></span>
+          <span class="status-text">STARTING</span>
+        </div>
+        <button id="layersButton" class="icon-btn" title="Map Layers">
+          <i class="fa-solid fa-layer-group"></i>
+        </button>
+      </div>
+    </header>
+
+    <section class="earth-workspace">
+      <div id="cesiumContainer"></div>
+
+      <!-- MAP LAYERS -->
+      <div id="layerPanel" class="map-layer-panel">
+        <div class="layer-title">
+          <span><i class="fa-solid fa-layer-group"></i> MAP LAYERS</span>
+          <button id="layerCollapse" title="Collapse panel">
+            <i class="fa-solid fa-chevron-left"></i>
+          </button>
+        </div>
+
+        <div class="layer-panel-body">
+          <div class="layer-group-title">BASE MAP</div>
+          <label class="layer-item">
+            <input id="baseImageryToggle" type="checkbox" checked>
+            <span>Google Satellite</span>
+          </label>
+          <label class="layer-item">
+            <input id="terrainToggle" type="checkbox" checked>
+            <span>World Terrain</span>
+          </label>
+
+          <div class="layer-group-title">COPERNICUS DATA</div>
+          <label class="layer-item">
+            <input id="sentinelToggle" type="checkbox">
+            <span>Sentinel-2</span>
+            <small id="sentinelStatus">OFF</small>
+          </label>
+          <label class="layer-item">
+            <input id="trueColorToggle" type="checkbox">
+            <span>Natural Color</span>
+          </label>
+          <label class="layer-item">
+            <input id="ndviToggle" type="checkbox">
+            <span>NDVI</span>
+          </label>
+          <label class="layer-item">
+            <input id="moistureToggle" type="checkbox">
+            <span>Moisture Index</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- MAP STATUS -->
+      <div class="map-data-status">
+        <span class="status-dot"></span>
+        <span id="mapStatusText">Initializing Earth...</span>
+      </div>
+
+      <!-- MAP TOOLS -->
+      <div class="map-toolbar">
+        <button id="zoomInButton" class="map-tool" title="Zoom In">
+          <i class="fa-solid fa-plus"></i>
+        </button>
+        <button id="zoomOutButton" class="map-tool" title="Zoom Out">
+          <i class="fa-solid fa-minus"></i>
+        </button>
+        <div class="toolbar-divider"></div>
+        <button id="homeButton" class="map-tool" title="Home">
+          <i class="fa-solid fa-house"></i>
+        </button>
+        <button id="northButton" class="map-tool" title="Face North">
+          <i class="fa-solid fa-compass"></i>
+        </button>
+      </div>
+
+      <!-- COORDINATES -->
+      <div class="coordinates">
+        LAT <strong id="latitudeValue">0.000000</strong>
+        <span class="coordinate-divider"></span>
+        LON <strong id="longitudeValue">0.000000</strong>
+      </div>
+
+      <div class="data-source-badge">
+        <i class="fa-solid fa-satellite-dish"></i>
+        Cesium • Google • Copernicus
+      </div>
+
+      <!-- FLOOD PANEL -->
+      <section id="floodPanel" class="flood-panel" hidden>
+        <div class="analysis-header">
+          <div>
+            <small>EARTH OBSERVATION</small>
+            <h3><i class="fa-solid fa-water"></i> Flood Monitoring</h3>
+          </div>
+          <button id="floodClose" class="panel-close" title="Close">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+
+        <p id="floodLocation" class="analysis-location">
+          Search for a location
+        </p>
+
+        <div class="risk-display">
+          <span>RAINFALL SCREENING</span>
+          <strong id="floodRisk">--</strong>
+        </div>
+
+        <div class="analysis-grid">
+          <div class="analysis-stat">
+            <span>Previous 7 Days Rainfall</span>
+            <strong id="floodRainfall">--</strong>
+          </div>
+          <div class="analysis-stat">
+            <span>Model-Grid Elevation</span>
+            <strong id="floodElevation">--</strong>
+          </div>
+        </div>
+
+        <div class="analysis-note">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <p>
+            Experimental rainfall screening only.
+            The marker and circle do not represent actual
+            flooded areas or an official flood warning.
+          </p>
+        </div>
+      </section>
+
+      <!-- WEATHER PANEL -->
+      <section id="weatherPanel" class="weather-panel" hidden>
+        <div class="weather-panel-header">
+          <div>
+            <small class="weather-eyebrow">LIVE WEATHER</small>
+            <h3 id="weatherLocation">Selected Location</h3>
+            <div class="weather-updated">Current conditions</div>
+          </div>
+          <div id="weatherIcon" class="weather-main-icon">🌤️</div>
+        </div>
+
+        <div class="weather-current">
+          <div class="weather-temperature-block">
+            <span id="weatherTemperature">--°</span>
+            <span class="weather-temperature-unit">C</span>
+          </div>
+          <div>
+            <strong id="weatherCondition">Waiting for weather</strong>
+            <div class="weather-feels-row">
+              Feels like <span id="weatherFeelsLike">--</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="weather-metrics">
+          <div class="weather-metric">
+            <i class="fa-solid fa-droplet"></i>
+            <span>Humidity</span>
+            <strong id="weatherHumidity">--</strong>
+          </div>
+          <div class="weather-metric">
+            <i class="fa-solid fa-wind"></i>
+            <span>Wind</span>
+            <strong id="weatherWind">--</strong>
+          </div>
+          <div class="weather-metric">
+            <i class="fa-solid fa-cloud-rain"></i>
+            <span>Rain</span>
+            <strong id="weatherRain">--</strong>
+          </div>
+          <div class="weather-metric">
+            <i class="fa-solid fa-cloud"></i>
+            <span>Cloud Cover</span>
+            <strong id="weatherClouds">--</strong>
+          </div>
+        </div>
+
+        <div class="weather-wind-card">
+          <div class="weather-forecast-header">
+            <strong>Wind Conditions</strong>
+          </div>
+          <div class="weather-wind-stats">
+            <div>Direction <strong id="weatherWindDirection">--</strong></div>
+            <div>Gusts <strong id="weatherGusts">--</strong></div>
+          </div>
+        </div>
+
+        <div class="weather-forecast-section">
+          <div class="weather-forecast-header">
+            <strong>Hourly Forecast</strong>
+          </div>
+          <div id="hourlyForecast" class="hourly-forecast"></div>
+        </div>
+
+        <div class="weather-panel-footer">
+          Weather data: Open-Meteo
+        </div>
+      </section>
+
+    </section>
+  </main>
+</div>
+
+<script>
+  window.APP_CONFIG = {
+    cesiumToken: {{ cesium_token | tojson }},
+    googleSatelliteAssetId: {{ google_satellite_asset_id | tojson }},
+    geoapifyApiKey: {{ geoapify_api_key | tojson }},
+    copernicusInstanceId: {{ copernicus_instance_id | tojson }},
+    copernicusUrl: {{ copernicus_url | tojson }}
+  };
+</script>
+
+<script type="module"
+  src="{{ url_for('static', filename='js/dashboard.js') }}">
+</script>
+</body>
+</html>
